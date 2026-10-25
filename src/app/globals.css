@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+@theme {
+  --color-nominal-primary: #FF492C;
+  --color-nominal-canvas: #FDFFF8;
+  --color-nominal-surface: #151414;
+  --color-nominal-surface-alt: #F3F7EB;
+  --color-nominal-ink: #151414;
+  --color-nominal-body: #5A5A5A;
+  --color-nominal-muted: #767676;
+  --color-nominal-faint: #BBBBBB;
+  --color-nominal-hairline: #D1DECD;
+  --color-nominal-teal: #4FCBA6;
+  --color-nominal-mint: #95E6CD;
+  --color-nominal-lavender: #98A5EF;
+  --color-nominal-butter: #EADC8F;
+
+  --font-display: var(--font-cormorant), Georgia, serif;
+  --font-sans: var(--font-jakarta), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains), monospace;
+}
+
+:root {
+  background-color: #FDFFF8;
+  color: #151414;
+}
+
+body {
+  background-color: #FDFFF8;
+  color: #151414;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: -0.02em;
+  overflow-x: hidden;
+}
+
+/* Aturan Tipografi Display Nominal (STK Bureau Serif Equivalent) */
+.nominal-display-xl {
+  font-family: var(--font-display);
+  font-weight: 300;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.nominal-display-lg {
+  font-family: var(--font-display);
+  font-weight: 300;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+/* Tombol Utama Nominal (0px Radius, Hover Mint/Teal, Active Dark) */
+.nominal-btn-primary {
+  background-color: #FFFFFF;
+  color: #151414;
+  border: 1px solid #D1DECD;
+  border-radius: 0px;
+  height: 44px;
+  padding: 0 20px;
+  font-weight: 500;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+}
+
+.nominal-btn-primary:hover:not(:disabled) {
+  background-color: #95E6CD;
+  border-color: #4FCBA6;
+  color: #151414;
+  box-shadow: rgba(0, 0, 0, 0.12) 0px 4px 24px 0px;
+}
+
+.nominal-btn-primary:active:not(:disabled) {
+  background-color: #272C2B;
+  color: #FDFFF8;
+  transform: translateY(-1px);
+}
+
+.nominal-btn-primary:disabled {
+  opacity: 0.33;
+  cursor: not-allowed;
+}
