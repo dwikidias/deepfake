@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { JetBrains_Mono } from "next/font/google";
+import "lenis/dist/lenis.css";
 import "./globals.css";
+import SmoothScrollProvider from "@/components/SmoothScrollProvider";
 
 const cormorant = localFont({
   src: "./fonts/stk-bureau-serif-light.CW_p4tq7.woff2",
@@ -56,7 +58,9 @@ export default function RootLayout({
       className={`${cormorant.variable} ${jakarta.variable} ${jetbrains.variable}`}
     >
       <body className="antialiased selection:bg-nominal-teal selection:text-nominal-ink">
-        {children}
+        <SmoothScrollProvider>
+          {children}
+        </SmoothScrollProvider>
       </body>
     </html>
   );
