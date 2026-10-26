@@ -1,18 +1,27 @@
 import type { Metadata } from "next";
-import { Cormorant_Garamond, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
+import { JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["300", "400", "600"],
-  style: ["normal", "italic"],
+const cormorant = localFont({
+  src: "./fonts/stk-bureau-serif-light.CW_p4tq7.woff2",
   variable: "--font-cormorant",
   display: "swap",
 });
 
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
+const jakarta = localFont({
+  src: [
+    {
+      path: "./fonts/retorika-medium.BMb6MC4j.woff2",
+      weight: "500",
+      style: "normal",
+    },
+    {
+      path: "./fonts/retorika-semibold.D_3siNFs.woff2",
+      weight: "600",
+      style: "normal",
+    },
+  ],
   variable: "--font-jakarta",
   display: "swap",
 });

@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --color-nominal-primary: #FF492C;
+  --color-nominal-primary: #DC3545;
   --color-nominal-canvas: #FDFFF8;
   --color-nominal-surface: #151414;
   --color-nominal-surface-alt: #F3F7EB;
@@ -11,7 +11,7 @@
   --color-nominal-faint: #BBBBBB;
   --color-nominal-hairline: #D1DECD;
   --color-nominal-teal: #4FCBA6;
-  --color-nominal-mint: #95E6CD;
+  --color-nominal-mint: #5ADEB7;
   --color-nominal-lavender: #98A5EF;
   --color-nominal-butter: #EADC8F;
 
@@ -63,7 +63,7 @@ body {
 }
 
 .nominal-btn-primary:hover:not(:disabled) {
-  background-color: #95E6CD;
+  background-color: #5ADEB7;
   border-color: #4FCBA6;
   color: #151414;
   box-shadow: rgba(0, 0, 0, 0.12) 0px 4px 24px 0px;
