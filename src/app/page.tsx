@@ -6,12 +6,13 @@ import {
   ShieldCheck,
   WarningOctagon,
   FilmStrip,
-  ArrowsLeftRight,
   Database,
   Play,
   SpinnerGap,
   List,
   X,
+  MagnifyingGlass,
+  ArrowRight,
 } from "@phosphor-icons/react";
 import { analyzeVideoFrames, type VideoAnalysisResult } from "@/lib/deepfake-client";
 import {
@@ -34,7 +35,6 @@ export default function NominalForensicsPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [result, setResult] = useState<VideoAnalysisResult | null>(null);
   const [activeFrameIdx, setActiveFrameIdx] = useState<number>(0);
-  const [wipePercent, setWipePercent] = useState<number>(52);
   const [logs, setLogs] = useState<ScanLogRow[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
@@ -160,7 +160,7 @@ export default function NominalForensicsPage() {
           <div className="flex items-center gap-2.5 sm:gap-3">
             <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-nominal-primary rounded-none" />
             <span className="font-sans text-xs sm:text-sm font-bold tracking-tight text-nominal-ink uppercase">
-              NOMINAL FORENSICS
+              FORENSICS
             </span>
           </div>
 
@@ -169,8 +169,8 @@ export default function NominalForensicsPage() {
             <a href="#scanner" className="hover:text-nominal-body transition-colors">
               Pemindai Video
             </a>
-            <a href="#comparison" className="hover:text-nominal-body transition-colors">
-              Metode Spektral
+            <a href="#how-it-works" className="hover:text-nominal-body transition-colors">
+              Cara Kerja
             </a>
             <a href="#workbench" className="hover:text-nominal-body transition-colors">
               Meja Bedah Frame
@@ -213,11 +213,11 @@ export default function NominalForensicsPage() {
               Pemindai Video
             </a>
             <a
-              href="#comparison"
+              href="#how-it-works"
               onClick={() => setIsMobileMenuOpen(false)}
               className="px-3 py-2.5 text-xs font-semibold text-nominal-ink hover:bg-nominal-surface-alt transition-colors"
             >
-              Metode Spektral
+              Cara Kerja
             </a>
             <a
               href="#workbench"
@@ -244,7 +244,7 @@ export default function NominalForensicsPage() {
       >
         {/* Kolom Kiri: Headline & Skenario Sampel */}
         <div className="lg:col-span-7 flex flex-col items-start gap-4 sm:gap-6">
-          <span className="rounded-full bg-nominal-mint text-nominal-ink px-3 py-1 text-[11px] sm:text-xs font-semibold">
+          <span className="rounded-none border border-[#C5D8C3] bg-[#EBF3EA] text-[#165337] px-3 py-1 text-[11px] sm:text-xs font-semibold uppercase tracking-wide">
             Vision Transformer Frame Forensics
           </span>
 
@@ -254,7 +254,7 @@ export default function NominalForensicsPage() {
 
           <p className="text-sm sm:text-base lg:text-lg text-nominal-body max-w-[54ch] leading-[1.5]">
             Ekstrak sampel frame langsung di browser Anda, periksa artefak manipulasi
-            wajah dengan model Vision Transformer, dan catat hasilnya ke arsip publik.
+            wajah dengan model Vision Transformer, dan catat hasilnya.
           </p>
 
           <div className="w-full pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
@@ -295,34 +295,39 @@ export default function NominalForensicsPage() {
           <div className="bg-nominal-surface text-nominal-canvas border border-nominal-body p-6 rounded-none flex flex-col gap-6">
             <div className="flex items-center justify-between border-b border-nominal-body pb-4">
               <div className="flex items-center gap-2">
-                <FilmStrip size={20} className="text-nominal-teal" />
+                <FilmStrip size={20} className="text-[#88C9A1]" />
                 <span className="text-sm font-semibold">Terminal Ingest Video</span>
               </div>
-              <span className="rounded-full bg-nominal-butter text-nominal-ink px-2.5 py-0.5 text-xs font-semibold">
+              <span className="rounded-none border border-[#3E3C3C] bg-[#242323] text-[#D1DECD] px-2.5 py-0.5 text-xs font-mono font-semibold uppercase">
                 Threshold 50%
               </span>
             </div>
 
             <input
               ref={fileInputRef}
+              id="video-file-input"
+              aria-label="Unggah berkas video forensik"
               type="file"
               accept="video/mp4,video/webm,video/quicktime"
               onChange={handleFileSelect}
               className="hidden"
             />
 
-            <div
-              onClick={() => !isProcessing && fileInputRef.current?.click()}
-              className="border border-dashed border-nominal-body hover:border-nominal-teal p-5 sm:p-8 text-center cursor-pointer transition-colors flex flex-col items-center justify-center gap-2.5 sm:gap-3 min-h-[160px] sm:min-h-[210px] bg-[#1D1B1B]"
+            <button
+              type="button"
+              disabled={isProcessing}
+              onClick={() => fileInputRef.current?.click()}
+              aria-label="Pilih atau unggah berkas video untuk pemindaian frame forensik"
+              className="w-full border border-dashed border-nominal-body hover:border-nominal-teal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-nominal-teal p-5 sm:p-8 text-center cursor-pointer transition-colors flex flex-col items-center justify-center gap-2.5 sm:gap-3 min-h-[160px] sm:min-h-[210px] bg-[#1D1B1B] disabled:cursor-not-allowed"
             >
               {isProcessing ? (
                 <>
-                  <SpinnerGap size={30} className="text-nominal-teal animate-spin" />
+                  <SpinnerGap size={30} className="text-[#88C9A1] animate-spin" />
                   <p className="text-xs sm:text-sm text-nominal-canvas font-medium">{statusText}</p>
                 </>
               ) : (
                 <>
-                  <UploadSimple size={28} className="text-nominal-teal" />
+                  <UploadSimple size={28} className="text-[#88C9A1]" />
                   <p className="text-sm sm:text-base font-medium text-nominal-canvas">
                     Klik untuk memilih video atau jalankan tombol sampel
                   </p>
@@ -331,7 +336,7 @@ export default function NominalForensicsPage() {
                   </p>
                 </>
               )}
-            </div>
+            </button>
 
             {errorMessage && (
               <div className="border border-nominal-primary bg-[#2A1614] p-3 text-xs text-nominal-canvas flex items-center gap-2">
@@ -349,7 +354,7 @@ export default function NominalForensicsPage() {
               </div>
               <div className="border border-nominal-body p-2.5 sm:p-3">
                 <span className="text-nominal-faint block text-[11px]">Batas Manipulasi</span>
-                <span className="font-mono text-nominal-teal mt-0.5 block">
+                <span className="font-mono text-[#88C9A1] mt-0.5 block">
                   Fake &gt;= 50.0%
                 </span>
               </div>
@@ -358,98 +363,129 @@ export default function NominalForensicsPage() {
         </div>
       </section>
 
-      {/* ACT 2: TENSION - WIPE PERBANDINGAN SPEKTRAL (Surface Alt #F3F7EB) */}
+      {/* ACT 2: HOW IT WORKS - 3 LANGKAH KERJA (Surface Alt #F3F7EB) */}
       <section
-        id="comparison"
-        className="bg-nominal-surface-alt border-y border-nominal-hairline py-12 sm:py-16 px-4 sm:px-6 lg:px-16"
+        id="how-it-works"
+        className="bg-nominal-surface-alt border-y border-nominal-hairline py-14 sm:py-20 px-4 sm:px-6 lg:px-16"
       >
-        <div className="max-w-[1344px] mx-auto flex flex-col gap-6 sm:gap-8">
-          <div className="max-w-[64ch] flex flex-col gap-2.5 sm:gap-3">
-            <h2 className="nominal-display-lg text-2xl sm:text-4xl lg:text-5xl text-nominal-ink">
-              Mengapa mata manusia sering tertipu oleh kompresi video.
+        <div className="max-w-[1344px] mx-auto flex flex-col items-center gap-8 sm:gap-12">
+          {/* Judul Section */}
+          <div className="text-center max-w-[720px]">
+            <h2 className="nominal-display-xl text-3xl sm:text-5xl lg:text-[54px] text-nominal-ink">
+              Tiga langkah dari berkas hingga putusan.
             </h2>
-            <p className="text-sm sm:text-base text-nominal-body">
-              Algoritma face-swap meninggalkan ketidakwajaran piksel pada batas rahang dan
-              mata. Geser garis pemisah di bawah untuk melihat perbedaan antara frame asli
-              dan peta anomali Vision Transformer.
-            </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
-            <div className="lg:col-span-8 relative border border-nominal-hairline bg-nominal-surface h-[280px] sm:h-[360px] md:h-[400px] overflow-hidden select-none">
-              {/* Lapisan Bawah: Peta Anomali Deepfake */}
-              <div className="absolute inset-0 bg-[#1B1414] flex flex-col justify-between p-4 sm:p-6">
-                <div className="flex justify-between items-center gap-2">
-                  <span className="rounded-full bg-nominal-primary text-nominal-ink px-2.5 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-semibold truncate">
-                    Peta Anomali (Fake: 87.4%)
-                  </span>
-                  <span className="font-mono text-[10px] sm:text-xs text-nominal-faint hidden xs:inline">
-                    PATCH 16x16 ATTENTION
-                  </span>
-                </div>
-                <div className="my-auto mx-auto w-32 h-32 sm:w-44 sm:h-44 border-2 border-nominal-primary bg-nominal-primary/15 flex flex-col items-center justify-center p-3 sm:p-4 text-center">
-                  <WarningOctagon size={24} className="text-nominal-primary mb-1.5" />
-                  <span className="font-mono text-[10px] sm:text-xs text-nominal-canvas leading-tight">
-                    INKONSISTENSI TEPI WAJAH
-                  </span>
-                </div>
-                <div className="font-mono text-[10px] sm:text-xs text-nominal-faint truncate">
-                  ARTIFACT: JAWLINE &amp; OCULAR REGION
-                </div>
+          {/* Indikator Langkah di Bagian Atas */}
+          <div className="flex items-start justify-center gap-3 sm:gap-6 w-full max-w-xl">
+            {/* 01 INGEST */}
+            <div className="flex flex-col items-center min-w-[72px] sm:min-w-[88px]">
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full border border-nominal-hairline bg-white flex items-center justify-center font-mono text-xs font-semibold text-nominal-ink">
+                01
               </div>
+              <span className="mt-2 font-mono text-[10px] sm:text-[11px] font-semibold tracking-wider text-nominal-muted uppercase">
+                INGEST
+              </span>
+            </div>
 
-              {/* Lapisan Atas: Frame Visual Normal (Dipotong sesuai slider) */}
-              <div
-                className="absolute inset-y-0 left-0 bg-[#252827] overflow-hidden border-r-2 border-nominal-teal"
-                style={{ width: `${wipePercent}%` }}
-              >
-                <div className="absolute inset-y-0 left-0 w-full min-w-[280px] sm:min-w-[480px] md:min-w-[600px] p-4 sm:p-6 flex flex-col justify-between">
-                  <div>
-                    <span className="rounded-full bg-nominal-teal text-nominal-ink px-2.5 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-semibold">
-                      Tampilan Normal
-                    </span>
-                  </div>
-                  <div className="my-auto mx-auto w-32 h-32 sm:w-44 sm:h-44 border border-nominal-hairline bg-[#323635] flex flex-col items-center justify-center p-3 sm:p-4 text-center">
-                    <ShieldCheck size={24} className="text-nominal-teal mb-1.5" />
-                    <span className="font-mono text-[10px] sm:text-xs text-nominal-canvas leading-tight">
-                      VISUAL TAMPAK WAJAR
-                    </span>
-                  </div>
-                  <div className="font-mono text-[10px] sm:text-xs text-nominal-faint">
-                    RAW RGB STREAM 224x224
-                  </div>
+            {/* Panah 1-2 */}
+            <div className="h-10 sm:h-11 flex items-center text-nominal-muted">
+              <ArrowRight size={16} />
+            </div>
+
+            {/* 02 INFERENCE (Aktif: #151414 & #FDFFF8) */}
+            <div className="flex flex-col items-center min-w-[72px] sm:min-w-[88px]">
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#151414] text-[#FDFFF8] border border-[#151414] flex items-center justify-center font-mono text-xs font-semibold">
+                02
+              </div>
+              <span className="mt-2 font-mono text-[10px] sm:text-[11px] font-bold tracking-wider text-nominal-ink uppercase">
+                INFERENCE
+              </span>
+            </div>
+
+            {/* Panah 2-3 */}
+            <div className="h-10 sm:h-11 flex items-center text-nominal-muted">
+              <ArrowRight size={16} />
+            </div>
+
+            {/* 03 VERDICT */}
+            <div className="flex flex-col items-center min-w-[72px] sm:min-w-[88px]">
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full border border-nominal-hairline bg-white flex items-center justify-center font-mono text-xs font-semibold text-nominal-muted">
+                03
+              </div>
+              <span className="mt-2 font-mono text-[10px] sm:text-[11px] font-semibold tracking-wider text-nominal-muted uppercase">
+                PENILAIAN AKHIR
+              </span>
+            </div>
+          </div>
+
+          {/* 3 Kartu Berjejer (Grid 3 Kolom di Desktop, 1 Kolom di Mobile) */}
+          <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6 items-stretch">
+            {/* Kartu 1: Upload */}
+            <div className="rounded-none border border-nominal-hairline bg-nominal-canvas p-6 sm:p-7 flex flex-col justify-start">
+              <div className="w-10 h-10 rounded-none bg-[#EAF8F2] border border-[#C6ECE0] flex items-center justify-center text-[#0F5B47] mb-5">
+                <UploadSimple size={20} weight="regular" />
+              </div>
+              <h3 className="text-base sm:text-lg font-semibold text-nominal-ink mb-2">
+                Unggah video Anda
+              </h3>
+              <p className="text-xs sm:text-sm text-nominal-body leading-relaxed">
+                Tarik dan lepas atau telusuri berkas video MP4, WebM, atau MOV hingga 40 MB. Delapan sampel frame diekstrak otomatis langsung di browser tanpa konfigurasi teknis rumit.
+              </p>
+            </div>
+
+            {/* Kartu 2: Analysis */}
+            <div className="rounded-none border border-nominal-hairline bg-nominal-canvas p-6 sm:p-7 flex flex-col justify-start">
+              <div className="w-10 h-10 rounded-none bg-[#EAF8F2] border border-[#C6ECE0] flex items-center justify-center text-[#0F5B47] mb-5">
+                <MagnifyingGlass size={20} weight="regular" />
+              </div>
+              <h3 className="text-base sm:text-lg font-semibold text-nominal-ink mb-2">
+                Inferensi Vision Transformer
+              </h3>
+              <p className="text-xs sm:text-sm text-nominal-body leading-relaxed">
+                Model detektor menjalankan pemindaian inferensi terhadap sinyal forensik dan visual secara serentak.
+              </p>
+
+              {/* 3 baris kotak bergaris tipis */}
+              <div className="mt-5 border border-nominal-hairline divide-y divide-nominal-hairline bg-white">
+                <div className="p-3">
+                  <span className="font-mono text-[10px] sm:text-[11px] font-semibold text-[#0F5B47] tracking-wider block mb-1">
+                    WAJAH (FACIAL)
+                  </span>
+                  <p className="text-xs text-nominal-body leading-relaxed">
+                    Pola kedipan, ekspresi mikro, serta konsistensi batas rahang dan bibir.
+                  </p>
+                </div>
+                <div className="p-3">
+                  <span className="font-mono text-[10px] sm:text-[11px] font-semibold text-[#0F5B47] tracking-wider block mb-1">
+                    GERAKAN (MOTION)
+                  </span>
+                  <p className="text-xs text-nominal-body leading-relaxed">
+                    Hasil rekaman yang terlihat buram atau pecah-pecah, ditambah dengan adanya gerakan aneh yang tidak wajar di dalam video.
+                  </p>
+                </div>
+                <div className="p-3">
+                  <span className="font-mono text-[10px] sm:text-[11px] font-semibold text-[#0F5B47] tracking-wider block mb-1">
+                    MODEL (DETECTOR)
+                  </span>
+                  <p className="text-xs text-nominal-body leading-relaxed">
+                    Pencocokan representasi piksel menggunakan Vision Transformer (ViT-224).
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Kontrol Geser Wipe */}
-            <div className="lg:col-span-4 bg-nominal-canvas border border-nominal-hairline p-4 sm:p-6 flex flex-col gap-4 sm:gap-5">
-              <div className="flex items-center gap-2 text-nominal-ink font-semibold text-sm sm:text-base">
-                <ArrowsLeftRight size={18} />
-                <span>Penggeser Inspeksi Lapisan</span>
+            {/* Kartu 3: Verdict */}
+            <div className="rounded-none border border-nominal-hairline bg-nominal-canvas p-6 sm:p-7 flex flex-col justify-start">
+              <div className="w-10 h-10 rounded-none bg-[#EAF8F2] border border-[#C6ECE0] flex items-center justify-center text-[#239974] mb-5">
+                <ShieldCheck size={20} weight="regular" />
               </div>
-              <p className="text-xs sm:text-sm text-nominal-body">
-                Geser tuas untuk membandingkan frame video mentah dengan pembacaan bobot
-                perhatian (attention weights) dari model detektor.
+              <h3 className="text-base sm:text-lg font-semibold text-nominal-ink mb-2">
+                Dapatkan putusan verifikasi
+              </h3>
+              <p className="text-xs sm:text-sm text-nominal-body leading-relaxed">
+                Keputusan akhir status Asli (Real) atau Terindikasi Deepfake, skor probabilitas manipulasi, serta matriks per frame yang dicatat.
               </p>
-              <div className="flex flex-col gap-2">
-                <label
-                  htmlFor="wipe-slider"
-                  className="text-xs font-semibold text-nominal-ink flex justify-between"
-                >
-                  <span>Posisi Pemisah Spektral</span>
-                  <span className="font-mono text-nominal-primary font-bold">{wipePercent}%</span>
-                </label>
-                <input
-                  id="wipe-slider"
-                  type="range"
-                  min={10}
-                  max={90}
-                  value={wipePercent}
-                  onChange={(e) => setWipePercent(Number(e.target.value))}
-                  className="w-full accent-nominal-primary cursor-pointer h-2 bg-nominal-hairline"
-                />
-              </div>
             </div>
           </div>
         </div>
@@ -464,8 +500,8 @@ export default function NominalForensicsPage() {
         <div className="max-w-[1344px] mx-auto flex flex-col gap-8 sm:gap-10">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-nominal-body pb-6 sm:pb-8">
             <div className="flex flex-col gap-2.5 sm:gap-3">
-              <span className="rounded-full bg-nominal-lavender text-nominal-ink px-3 py-1 text-[11px] sm:text-xs font-semibold w-fit">
-                Meja Bedah Frame Forensik
+              <span className="rounded-none border border-[#3E3C3C] bg-[#242323] text-[#D1DECD] px-3 py-1 text-[11px] sm:text-xs font-mono font-semibold w-fit uppercase">
+                Bedah Frame Forensik
               </span>
               <h2 className="nominal-display-lg text-2xl sm:text-4xl lg:text-5xl text-nominal-canvas">
                 Inspeksi Urutan Frame &amp; Skor Manipulasi.
@@ -478,8 +514,8 @@ export default function NominalForensicsPage() {
                   <span className="text-[11px] text-nominal-faint block">Keputusan Akhir</span>
                   <span
                     className={`font-mono text-base sm:text-lg font-bold ${result.verdict === "DEEPFAKE"
-                      ? "text-nominal-primary"
-                      : "text-nominal-teal"
+                      ? "text-[#E0525A]"
+                      : "text-[#88C9A1]"
                       }`}
                   >
                     {result.verdict === "DEEPFAKE"
@@ -532,8 +568,9 @@ export default function NominalForensicsPage() {
                       <button
                         key={item.frameIndex}
                         type="button"
+                        aria-label={`Pilih Frame ${item.frameIndex}, durasi ${item.timestampSec} detik, skor manipulasi ${(item.fakeScore * 100).toFixed(0)}%`}
                         onClick={() => setActiveFrameIdx(idx)}
-                        className={`text-left p-2 sm:p-2.5 border transition-colors cursor-pointer bg-[#1E1C1C] ${isSelected
+                        className={`text-left p-2 sm:p-2.5 border transition-colors cursor-pointer bg-[#1E1C1C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-nominal-teal ${isSelected
                           ? "border-nominal-primary ring-1 ring-nominal-primary"
                           : "border-nominal-body hover:border-nominal-teal"
                           }`}
@@ -543,13 +580,16 @@ export default function NominalForensicsPage() {
                             <img
                               src={frames[idx].base64}
                               alt={`Frame ${item.frameIndex}`}
+                              width={224}
+                              height={224}
+                              loading="lazy"
                               className="w-full h-full object-cover"
                             />
                           )}
                           <span
                             className={`absolute top-1.5 right-1.5 px-1.5 py-0.5 text-[10px] font-mono font-semibold ${isSuspicious
-                              ? "bg-nominal-primary text-nominal-ink"
-                              : "bg-nominal-teal text-nominal-ink"
+                              ? "bg-[#8C1D24] text-[#FDF1F0]"
+                              : "bg-[#165337] text-[#EBF3EA]"
                               }`}
                           >
                             {(item.fakeScore * 100).toFixed(0)}%
@@ -572,7 +612,7 @@ export default function NominalForensicsPage() {
                     <span className="text-sm font-semibold">
                       Detail Frame #{activeFrameData?.frameIndex}
                     </span>
-                    <span className="font-mono text-xs text-nominal-teal">
+                    <span className="font-mono text-xs text-[#88C9A1]">
                       t = {activeFrameData?.timestampSec}s
                     </span>
                   </div>
@@ -582,6 +622,8 @@ export default function NominalForensicsPage() {
                       <img
                         src={activeFrameImage}
                         alt="Frame Loupe Preview"
+                        width={320}
+                        height={320}
                         className="w-full h-full object-cover"
                       />
                     </div>
@@ -598,7 +640,7 @@ export default function NominalForensicsPage() {
                     </div>
                     <div className="border border-nominal-body p-2.5 sm:p-3">
                       <span className="text-[11px] text-nominal-faint block">Skor Real</span>
-                      <span className="font-mono text-lg sm:text-xl text-nominal-teal font-bold">
+                      <span className="font-mono text-lg sm:text-xl text-[#88C9A1] font-bold">
                         {activeFrameData
                           ? `${(activeFrameData.realScore * 100).toFixed(1)}%`
                           : "0%"}
@@ -621,7 +663,7 @@ export default function NominalForensicsPage() {
         <div className="flex flex-col gap-8 sm:gap-10">
           <div className="max-w-[60ch] flex flex-col gap-2.5 sm:gap-3">
             <h2 className="nominal-display-lg text-2xl sm:text-4xl lg:text-5xl text-nominal-ink">
-              Log Verifikasi Publik Supabase.
+              Log Verifikasi Publik.
             </h2>
             <p className="text-sm sm:text-base text-nominal-body">
               Setiap pemindaian hanya menyimpan metadata teks dan skor numerik ke
@@ -647,9 +689,9 @@ export default function NominalForensicsPage() {
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center justify-between gap-2">
                       <span
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${row.verdict === "DEEPFAKE"
-                          ? "bg-nominal-primary text-nominal-ink"
-                          : "bg-nominal-mint text-nominal-ink"
+                        className={`rounded-none border px-2.5 py-0.5 text-xs font-semibold uppercase ${row.verdict === "DEEPFAKE"
+                          ? "border-[#F4C7C5] bg-[#FDF1F0] text-[#8C1D24]"
+                          : "border-[#C5D8C3] bg-[#EBF3EA] text-[#165337]"
                           }`}
                       >
                         {row.verdict}
@@ -679,7 +721,7 @@ export default function NominalForensicsPage() {
       {/* FOOTER (Nominal Hairline Top Border) */}
       <footer className="border-t border-nominal-hairline py-8 sm:py-10 px-4 sm:px-6 lg:px-16">
         <div className="max-w-[1344px] mx-auto flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-4 text-xs text-nominal-muted text-center sm:text-left">
-          <span>NOMINAL FORENSICS - DEEPFAKE VIDEO INSPECTOR</span>
+          <span>FORENSICS - DEEPFAKE VIDEO INSPECTOR</span>
           <span className="font-mono text-[11px] sm:text-xs">
             NEXT.JS + SUPABASE + TAILWIND V4 + VISION TRANSFORMER
           </span>

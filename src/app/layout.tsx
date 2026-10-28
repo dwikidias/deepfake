@@ -36,7 +36,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Nominal Forensics | Deepfake Video Frame Inspector",
+  title: "Forensics | Deepfake Video Frame Inspector",
   description: "Pemeriksaan keaslian frame video berbasis Vision Transformer dan arsip verifikasi publik.",
 };
 
