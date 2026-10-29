@@ -1,74 +1,122 @@
+import { detectPrimaryFace, loadFaceDetector, type FaceBox } from "./face-detection";
+
 export interface ExtractedFrame {
+    // Potongan wajah 224x224, inilah yang dikirim ke detektor deepfake
     base64: string;
     timestampSec: number;
+    fullFrameBase64: string;
+    frameWidth: number;
+    frameHeight: number;
+    faceBox: FaceBox;
+    faceConfidence: number;
+    faceCount: number;
 }
 
 export interface ExtractedVideoPayload {
     fileName: string;
     durationSec: number;
     frames: ExtractedFrame[];
+    scannedFrameCount: number;
 }
 
+export type ExtractionProgress = (message: string) => void;
+
+export class NoFaceDetectedError extends Error {
+    constructor(scanned: number) {
+        super(
+            `Tidak ada wajah yang terdeteksi pada ${scanned} titik waktu yang dipindai. Gunakan video dengan wajah yang terlihat jelas.`
+        );
+        this.name = "NoFaceDetectedError";
+    }
+}
+
+// Lebar maksimum frame untuk deteksi wajah: cukup tajam untuk wajah kecil,
+// tetap ringan untuk pratinjau dan inferensi di browser.
+const MAX_FRAME_EDGE = 720;
+
+/**
+ * Memindai `scanCount` titik waktu yang tersebar merata, mendeteksi wajah di setiap
+ * titik, lalu mengambil hingga `targetCount` frame berwajah yang tersebar merata.
+ * Frame tanpa wajah dilewati.
+ */
 export async function extractFramesFromVideoFile(
     file: File,
-    frameCount = 8
+    targetCount = 8,
+    scanCount = 16,
+    onProgress?: ExtractionProgress
 ): Promise<ExtractedVideoPayload> {
+    onProgress?.("Memuat model deteksi wajah...");
+    await loadFaceDetector();
+
+    const objectUrl = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    video.src = objectUrl;
+    video.muted = true;
+    video.playsInline = true;
+    video.crossOrigin = "anonymous";
+
+    try {
+        await waitForMetadata(video);
+
+        const duration = Math.max(video.duration || 4, 1);
+        const sourceWidth = video.videoWidth || 224;
+        const sourceHeight = video.videoHeight || 224;
+        const scale = Math.min(1, MAX_FRAME_EDGE / Math.max(sourceWidth, sourceHeight));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(sourceWidth * scale);
+        canvas.height = Math.round(sourceHeight * scale);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Gagal menginisialisasi konteks Canvas 2D");
+
+        const faceFrames: ExtractedFrame[] = [];
+
+        for (let i = 0; i < scanCount; i++) {
+            onProgress?.(`Mencari wajah: frame ${i + 1} dari ${scanCount}...`);
+            const timestampSec = Number((((i + 0.5) / scanCount) * duration).toFixed(2));
+            await seekVideoToTime(video, timestampSec);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const face = await detectPrimaryFace(canvas);
+            if (!face) continue;
+
+            faceFrames.push({
+                base64: face.cropBase64,
+                timestampSec,
+                fullFrameBase64: canvas.toDataURL("image/jpeg", 0.8),
+                frameWidth: canvas.width,
+                frameHeight: canvas.height,
+                faceBox: face.box,
+                faceConfidence: face.confidence,
+                faceCount: face.faceCount,
+            });
+        }
+
+        if (faceFrames.length === 0) {
+            throw new NoFaceDetectedError(scanCount);
+        }
+
+        return {
+            fileName: file.name,
+            durationSec: Number(duration.toFixed(2)),
+            frames: pickEvenly(faceFrames, targetCount),
+            scannedFrameCount: scanCount,
+        };
+    } finally {
+        URL.revokeObjectURL(objectUrl);
+    }
+}
+
+function pickEvenly<T>(items: T[], count: number): T[] {
+    if (items.length <= count) return items;
+    return Array.from({ length: count }, (_, i) =>
+        items[Math.floor(((i + 0.5) / count) * items.length)]
+    );
+}
+
+function waitForMetadata(video: HTMLVideoElement): Promise<void> {
     return new Promise((resolve, reject) => {
-        const video = document.createElement("video");
-        const objectUrl = URL.createObjectURL(file);
-
-        video.src = objectUrl;
-        video.muted = true;
-        video.playsInline = true;
-        video.crossOrigin = "anonymous";
-
-        video.onloadedmetadata = async () => {
-            const duration = Math.max(video.duration || 4, 1);
-            const canvas = document.createElement("canvas");
-            canvas.width = 224;
-            canvas.height = 224;
-            const ctx = canvas.getContext("2d");
-
-            if (!ctx) {
-                URL.revokeObjectURL(objectUrl);
-                reject(new Error("Gagal menginisialisasi konteks Canvas 2D"));
-                return;
-            }
-
-            const frames: ExtractedFrame[] = [];
-
-            try {
-                for (let i = 0; i < frameCount; i++) {
-                    const timestampSec = Number(
-                        (((i + 0.5) / frameCount) * duration).toFixed(2)
-                    );
-                    await seekVideoToTime(video, timestampSec);
-
-                    const minDim = Math.min(video.videoWidth || 224, video.videoHeight || 224);
-                    const sx = ((video.videoWidth || 224) - minDim) / 2;
-                    const sy = ((video.videoHeight || 224) - minDim) / 2;
-
-                    ctx.drawImage(video, sx, sy, minDim, minDim, 0, 0, 224, 224);
-                    const base64 = canvas.toDataURL("image/jpeg", 0.85);
-                    frames.push({ base64, timestampSec });
-                }
-
-                URL.revokeObjectURL(objectUrl);
-                resolve({
-                    fileName: file.name,
-                    durationSec: Number(duration.toFixed(2)),
-                    frames,
-                });
-            } catch (err) {
-                URL.revokeObjectURL(objectUrl);
-                reject(err);
-            }
-        };
-
-        video.onerror = () => {
-            URL.revokeObjectURL(objectUrl);
-            reject(new Error("Format file video tidak didukung oleh browser"));
-        };
+        video.onloadedmetadata = () => resolve();
+        video.onerror = () => reject(new Error("Format file video tidak didukung oleh browser"));
     });
 }
 
@@ -81,64 +129,4 @@ function seekVideoToTime(video: HTMLVideoElement, timeSec: number): Promise<void
         video.addEventListener("seeked", onSeeked);
         video.currentTime = timeSec;
     });
-}
-
-/**
- * Menghasilkan 8 frame sampel uji coba beresolusi 224x224 JPEG untuk 2 skenario siap klik
- */
-export function buildPresetScenarioFrames(
-    scenario: "authentic" | "synthetic"
-): ExtractedVideoPayload {
-    const canvas = document.createElement("canvas");
-    canvas.width = 224;
-    canvas.height = 224;
-    const ctx = canvas.getContext("2d");
-    const frames: ExtractedFrame[] = [];
-    const totalFrames = 8;
-    const durationSec = scenario === "authentic" ? 12.4 : 9.6;
-
-    for (let i = 0; i < totalFrames; i++) {
-        const timestampSec = Number((((i + 0.5) / totalFrames) * durationSec).toFixed(2));
-        if (ctx) {
-            // Latar belakang studio
-            ctx.fillStyle = scenario === "authentic" ? "#26282A" : "#1F1924";
-            ctx.fillRect(0, 0, 224, 224);
-
-            // Siluet struktur wajah untuk pengujian pipeline
-            ctx.fillStyle = scenario === "authentic" ? "#D8C2B0" : "#C9A99A";
-            ctx.beginPath();
-            ctx.ellipse(112, 106, 46 + (i % 2), 58, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Garis penanda artefak frekuensi pada sampel sintetis
-            if (scenario === "synthetic") {
-                ctx.strokeStyle = "rgba(255, 73, 44, 0.45)";
-                ctx.lineWidth = 2;
-                ctx.strokeRect(72, 62, 80, 92);
-
-                // Simulasi ketidakwajaran tepi rahang (blending boundary)
-                ctx.fillStyle = "rgba(152, 165, 239, 0.28)";
-                ctx.fillRect(76, 122 + (i % 3) * 2, 72, 14);
-            }
-
-            // Watermark frame index teknis di sudut
-            ctx.fillStyle = "#FDFFF8";
-            ctx.font = "11px monospace";
-            ctx.fillText(`FRM-0${i + 1} | ${timestampSec}s`, 12, 208);
-        }
-
-        frames.push({
-            base64: canvas.toDataURL("image/jpeg", 0.85),
-            timestampSec,
-        });
-    }
-
-    return {
-        fileName:
-            scenario === "authentic"
-                ? "sample_press_briefing_raw.mp4"
-                : "sample_faceswap_interview_v2.mp4",
-        durationSec,
-        frames,
-    };
 }

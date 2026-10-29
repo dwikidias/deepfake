@@ -7,19 +7,16 @@ import {
   WarningOctagon,
   FilmStrip,
   Database,
-  Play,
   SpinnerGap,
   List,
   X,
   MagnifyingGlass,
   ArrowRight,
+  UserFocus,
 } from "@phosphor-icons/react";
 import { analyzeVideoFrames, type VideoAnalysisResult } from "@/lib/deepfake-client";
-import {
-  extractFramesFromVideoFile,
-  buildPresetScenarioFrames,
-  type ExtractedFrame,
-} from "@/lib/video-frames";
+import { extractFramesFromVideoFile, type ExtractedFrame } from "@/lib/video-frames";
+import { FACE_DETECTOR_NAME } from "@/lib/face-detection";
 import {
   saveScanLog,
   fetchRecentScanLogs,
@@ -30,6 +27,7 @@ export default function NominalForensicsPage() {
   const [frames, setFrames] = useState<ExtractedFrame[]>([]);
   const [fileName, setFileName] = useState<string>("");
   const [durationSec, setDurationSec] = useState<number>(0);
+  const [scannedFrameCount, setScannedFrameCount] = useState<number>(0);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [statusText, setStatusText] = useState<string>("Siap memindai berkas video");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -48,8 +46,7 @@ export default function NominalForensicsPage() {
   async function runForensicPipeline(
     targetFileName: string,
     targetDuration: number,
-    extractedFrames: ExtractedFrame[],
-    presetHint?: "authentic" | "synthetic"
+    extractedFrames: ExtractedFrame[]
   ) {
     setErrorMessage(null);
     setIsProcessing(true);
@@ -57,23 +54,25 @@ export default function NominalForensicsPage() {
     setDurationSec(targetDuration);
     setFrames(extractedFrames);
     setActiveFrameIdx(0);
-    setStatusText("Menghubungkan ke Hugging Face Space ViT...");
+    setStatusText(
+      `${extractedFrames.length} potongan wajah dikirim ke detektor ViT...`
+    );
+
+    // Hanya potongan wajah yang dikirim; frame penuh tetap di browser untuk pratinjau
+    const faceCrops = extractedFrames.map((f) => ({
+      base64: f.base64,
+      timestampSec: f.timestampSec,
+    }));
 
     try {
       let analysis: VideoAnalysisResult;
       try {
-        analysis = await analyzeVideoFrames(extractedFrames, targetFileName, presetHint);
+        analysis = await analyzeVideoFrames(faceCrops, targetFileName);
       } catch {
         // Fallback terukur jika Space publik sedang cold-start/sleeping
         const simulatedFrames = extractedFrames.map((f, idx) => {
           const charSum = f.base64.slice(-80).split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
-          const variance = ((charSum % 25) - 12) * 0.01;
-          const baseFake =
-            presetHint === "authentic"
-              ? 0.12 + ((idx * 3) % 8) * 0.01 + variance * 0.3
-              : presetHint === "synthetic"
-                ? 0.78 + ((idx * 4) % 12) * 0.01 + variance * 0.3
-                : 0.35 + ((charSum % 45) * 0.01) + ((idx * 2) % 7) * 0.01;
+          const baseFake = 0.35 + ((charSum % 45) * 0.01) + ((idx * 2) % 7) * 0.01;
           const fakeScore = Number(Math.min(0.96, Math.max(0.04, baseFake)).toFixed(4));
           return {
             frameIndex: idx + 1,
@@ -126,31 +125,25 @@ export default function NominalForensicsPage() {
 
     setIsProcessing(true);
     setErrorMessage(null);
-    setStatusText("Mengekstrak 8 sampel frame dari video di browser...");
+    setStatusText("Menyiapkan pemindaian wajah...");
 
     try {
-      const payload = await extractFramesFromVideoFile(file, 8);
+      const payload = await extractFramesFromVideoFile(file, 8, 16, setStatusText);
+      setScannedFrameCount(payload.scannedFrameCount);
       await runForensicPipeline(payload.fileName, payload.durationSec, payload.frames);
     } catch (err) {
       setIsProcessing(false);
       setErrorMessage(
         err instanceof Error ? err.message : "Gagal mengekstrak frame video"
       );
+    } finally {
+      // Reset agar berkas yang sama bisa dipilih ulang
+      e.target.value = "";
     }
   }
 
-  async function handleRunPreset(scenario: "authentic" | "synthetic") {
-    const payload = buildPresetScenarioFrames(scenario);
-    await runForensicPipeline(
-      payload.fileName,
-      payload.durationSec,
-      payload.frames,
-      scenario
-    );
-  }
-
   const activeFrameData = result?.frameResults[activeFrameIdx];
-  const activeFrameImage = frames[activeFrameIdx]?.base64;
+  const activeFrame = frames[activeFrameIdx];
 
   return (
     <div className="min-h-screen bg-nominal-canvas text-nominal-ink">
@@ -253,8 +246,9 @@ export default function NominalForensicsPage() {
           </h1>
 
           <p className="text-sm sm:text-base lg:text-lg text-nominal-body max-w-[54ch] leading-[1.5]">
-            Ekstrak sampel frame langsung di browser Anda, periksa artefak manipulasi
-            wajah dengan model Vision Transformer, dan catat hasilnya.
+            Ekstrak sampel frame langsung di browser Anda, temukan wajah di setiap
+            frame, lalu periksa artefak manipulasi pada area wajah dengan model
+            Vision Transformer dan catat hasilnya.
           </p>
 
           <div className="w-full pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
@@ -262,30 +256,10 @@ export default function NominalForensicsPage() {
               type="button"
               disabled={isProcessing}
               onClick={() => fileInputRef.current?.click()}
-              className="nominal-btn-primary h-[44px] sm:h-[46px] flex items-center justify-center gap-2.5 cursor-pointer text-sm w-full sm:w-auto"
+              className="nominal-btn-primary h-[44px] sm:h-[46px] flex items-center justify-center gap-2.5 cursor-pointer text-sm w-full sm:w-auto disabled:cursor-not-allowed"
             >
               <UploadSimple size={18} />
               <span>Pilih File Video (.MP4)</span>
-            </button>
-
-            <button
-              type="button"
-              disabled={isProcessing}
-              onClick={() => handleRunPreset("synthetic")}
-              className="h-[44px] sm:h-[46px] px-4 bg-nominal-surface text-nominal-canvas border border-nominal-surface rounded-none text-sm font-medium hover:bg-nominal-primary hover:border-nominal-primary hover:text-nominal-ink transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-33 w-full sm:w-auto"
-            >
-              <Play size={15} weight="fill" />
-              <span>Uji Sampel Deepfake</span>
-            </button>
-
-            <button
-              type="button"
-              disabled={isProcessing}
-              onClick={() => handleRunPreset("authentic")}
-              className="h-[44px] sm:h-[46px] px-4 bg-transparent text-nominal-ink border border-nominal-hairline rounded-none text-sm font-medium hover:border-nominal-teal hover:bg-white transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-33 w-full sm:w-auto"
-            >
-              <Play size={15} />
-              <span>Uji Sampel Asli</span>
             </button>
           </div>
         </div>
@@ -296,7 +270,7 @@ export default function NominalForensicsPage() {
             <div className="flex items-center justify-between border-b border-nominal-body pb-4">
               <div className="flex items-center gap-2">
                 <FilmStrip size={20} className="text-[#88C9A1]" />
-                <span className="text-sm font-semibold">Terminal Ingest Video</span>
+                <span className="text-sm font-semibold">Terminal Transfer Video</span>
               </div>
               <span className="rounded-none border border-[#3E3C3C] bg-[#242323] text-[#D1DECD] px-2.5 py-0.5 text-xs font-mono font-semibold uppercase">
                 Threshold 50%
@@ -329,10 +303,10 @@ export default function NominalForensicsPage() {
                 <>
                   <UploadSimple size={28} className="text-[#88C9A1]" />
                   <p className="text-sm sm:text-base font-medium text-nominal-canvas">
-                    Klik untuk memilih video atau jalankan tombol sampel
+                    Klik untuk memilih video yang memperlihatkan wajah
                   </p>
                   <p className="text-[11px] sm:text-xs text-nominal-faint">
-                    Mendukung MP4 dan WebM (pemotongan 8 frame otomatis di browser)
+                    MP4, WebM, atau MOV. 16 titik waktu dipindai, hingga 8 frame berwajah dianalisis
                   </p>
                 </>
               )}
@@ -347,6 +321,12 @@ export default function NominalForensicsPage() {
 
             <div className="grid grid-cols-2 gap-2 sm:gap-3 pt-1 text-xs">
               <div className="border border-nominal-body p-2.5 sm:p-3">
+                <span className="text-nominal-faint block text-[11px]">Detektor Wajah</span>
+                <span className="font-mono text-nominal-canvas mt-0.5 block truncate">
+                  SSD MobileNet v1
+                </span>
+              </div>
+              <div className="border border-nominal-body p-2.5 sm:p-3">
                 <span className="text-nominal-faint block text-[11px]">Model Detektor</span>
                 <span className="font-mono text-nominal-canvas mt-0.5 block truncate">
                   dima806/ViT-224
@@ -358,12 +338,20 @@ export default function NominalForensicsPage() {
                   Fake &gt;= 50.0%
                 </span>
               </div>
+              <div className="border border-nominal-body p-2.5 sm:p-3">
+                <span className="text-nominal-faint block text-[11px]">Frame Berwajah</span>
+                <span className="font-mono text-nominal-canvas mt-0.5 block truncate">
+                  {scannedFrameCount > 0
+                    ? `${frames.length} dari ${scannedFrameCount}`
+                    : "Belum dipindai"}
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ACT 2: HOW IT WORKS - 3 LANGKAH KERJA (Surface Alt #F3F7EB) */}
+      {/* ACT 2: HOW IT WORKS - 4 LANGKAH KERJA (Surface Alt #F3F7EB) */}
       <section
         id="how-it-works"
         className="bg-nominal-surface-alt border-y border-nominal-hairline py-14 sm:py-20 px-4 sm:px-6 lg:px-16"
@@ -372,55 +360,67 @@ export default function NominalForensicsPage() {
           {/* Judul Section */}
           <div className="text-center max-w-[720px]">
             <h2 className="nominal-display-xl text-3xl sm:text-5xl lg:text-[54px] text-nominal-ink">
-              Tiga langkah dari berkas hingga putusan.
+              Empat langkah dari berkas hingga putusan.
             </h2>
           </div>
 
-          {/* Indikator Langkah di Bagian Atas */}
-          <div className="flex items-start justify-center gap-3 sm:gap-6 w-full max-w-xl">
-            {/* 01 INGEST */}
-            <div className="flex flex-col items-center min-w-[72px] sm:min-w-[88px]">
+          {/* Indikator Langkah di Bagian Atas (panah disembunyikan di mobile agar 4 langkah muat) */}
+          <div className="flex items-start justify-center gap-2 sm:gap-5 w-full max-w-2xl">
+            {/* 01 UNGGAH */}
+            <div className="flex flex-col items-center min-w-[64px] sm:min-w-[80px]">
               <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full border border-nominal-hairline bg-white flex items-center justify-center font-mono text-xs font-semibold text-nominal-ink">
                 01
               </div>
               <span className="mt-2 font-mono text-[10px] sm:text-[11px] font-semibold tracking-wider text-nominal-muted uppercase">
-                INGEST
+                UNGGAH
               </span>
             </div>
 
-            {/* Panah 1-2 */}
-            <div className="h-10 sm:h-11 flex items-center text-nominal-muted">
+            <div className="hidden sm:flex h-11 items-center text-nominal-muted" aria-hidden="true">
               <ArrowRight size={16} />
             </div>
 
-            {/* 02 INFERENCE (Aktif: #151414 & #FDFFF8) */}
-            <div className="flex flex-col items-center min-w-[72px] sm:min-w-[88px]">
-              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#151414] text-[#FDFFF8] border border-[#151414] flex items-center justify-center font-mono text-xs font-semibold">
+            {/* 02 WAJAH */}
+            <div className="flex flex-col items-center min-w-[64px] sm:min-w-[80px]">
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full border border-nominal-hairline bg-white flex items-center justify-center font-mono text-xs font-semibold text-nominal-ink">
                 02
+              </div>
+              <span className="mt-2 font-mono text-[10px] sm:text-[11px] font-semibold tracking-wider text-nominal-muted uppercase">
+                WAJAH
+              </span>
+            </div>
+
+            <div className="hidden sm:flex h-11 items-center text-nominal-muted" aria-hidden="true">
+              <ArrowRight size={16} />
+            </div>
+
+            {/* 03 INFERENCE (Aktif: #151414 & #FDFFF8) */}
+            <div className="flex flex-col items-center min-w-[64px] sm:min-w-[80px]">
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#151414] text-[#FDFFF8] border border-[#151414] flex items-center justify-center font-mono text-xs font-semibold">
+                03
               </div>
               <span className="mt-2 font-mono text-[10px] sm:text-[11px] font-bold tracking-wider text-nominal-ink uppercase">
                 INFERENCE
               </span>
             </div>
 
-            {/* Panah 2-3 */}
-            <div className="h-10 sm:h-11 flex items-center text-nominal-muted">
+            <div className="hidden sm:flex h-11 items-center text-nominal-muted" aria-hidden="true">
               <ArrowRight size={16} />
             </div>
 
-            {/* 03 VERDICT */}
-            <div className="flex flex-col items-center min-w-[72px] sm:min-w-[88px]">
+            {/* 04 PUTUSAN */}
+            <div className="flex flex-col items-center min-w-[64px] sm:min-w-[80px]">
               <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full border border-nominal-hairline bg-white flex items-center justify-center font-mono text-xs font-semibold text-nominal-muted">
-                03
+                04
               </div>
               <span className="mt-2 font-mono text-[10px] sm:text-[11px] font-semibold tracking-wider text-nominal-muted uppercase">
-                PENILAIAN AKHIR
+                PUTUSAN
               </span>
             </div>
           </div>
 
-          {/* 3 Kartu Berjejer (Grid 3 Kolom di Desktop, 1 Kolom di Mobile) */}
-          <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6 items-stretch">
+          {/* 4 Kartu (4 kolom di desktop, 2 di tablet, 1 di mobile) */}
+          <div className="w-full grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 sm:gap-6 items-stretch">
             {/* Kartu 1: Upload */}
             <div className="rounded-none border border-nominal-hairline bg-nominal-canvas p-6 sm:p-7 flex flex-col justify-start">
               <div className="w-10 h-10 rounded-none bg-[#EAF8F2] border border-[#C6ECE0] flex items-center justify-center text-[#0F5B47] mb-5">
@@ -430,11 +430,24 @@ export default function NominalForensicsPage() {
                 Unggah video Anda
               </h3>
               <p className="text-xs sm:text-sm text-nominal-body leading-relaxed">
-                Tarik dan lepas atau telusuri berkas video MP4, WebM, atau MOV hingga 40 MB. Delapan sampel frame diekstrak otomatis langsung di browser tanpa konfigurasi teknis rumit.
+                Telusuri berkas video MP4, WebM, atau MOV hingga 40 MB. Video dibaca langsung di browser; berkasnya tidak pernah diunggah ke server.
               </p>
             </div>
 
-            {/* Kartu 2: Analysis */}
+            {/* Kartu 2: Face detection */}
+            <div className="rounded-none border border-nominal-hairline bg-nominal-canvas p-6 sm:p-7 flex flex-col justify-start">
+              <div className="w-10 h-10 rounded-none bg-[#EAF8F2] border border-[#C6ECE0] flex items-center justify-center text-[#0F5B47] mb-5">
+                <UserFocus size={20} weight="regular" />
+              </div>
+              <h3 className="text-base sm:text-lg font-semibold text-nominal-ink mb-2">
+                Temukan wajah di setiap frame
+              </h3>
+              <p className="text-xs sm:text-sm text-nominal-body leading-relaxed">
+                16 titik waktu dipindai dengan detektor wajah SSD MobileNet v1. Wajah terbesar dipotong beserta rahang dan rambut, lalu diperkecil ke 224x224. Frame tanpa wajah dilewati, jadi detektor deepfake hanya menilai area wajah.
+              </p>
+            </div>
+
+            {/* Kartu 3: Analysis */}
             <div className="rounded-none border border-nominal-hairline bg-nominal-canvas p-6 sm:p-7 flex flex-col justify-start">
               <div className="w-10 h-10 rounded-none bg-[#EAF8F2] border border-[#C6ECE0] flex items-center justify-center text-[#0F5B47] mb-5">
                 <MagnifyingGlass size={20} weight="regular" />
@@ -475,7 +488,7 @@ export default function NominalForensicsPage() {
               </div>
             </div>
 
-            {/* Kartu 3: Verdict */}
+            {/* Kartu 4: Verdict */}
             <div className="rounded-none border border-nominal-hairline bg-nominal-canvas p-6 sm:p-7 flex flex-col justify-start">
               <div className="w-10 h-10 rounded-none bg-[#EAF8F2] border border-[#C6ECE0] flex items-center justify-center text-[#239974] mb-5">
                 <ShieldCheck size={20} weight="regular" />
@@ -538,16 +551,18 @@ export default function NominalForensicsPage() {
             <div className="border border-nominal-body p-8 sm:p-12 text-center flex flex-col items-center gap-4 bg-[#1B1919]">
               <FilmStrip size={32} className="text-nominal-faint" />
               <p className="text-sm sm:text-base text-nominal-canvas max-w-[48ch]">
-                Belum ada video yang dianalisis pada sesi ini. Klik salah satu tombol
-                sampel di atas atau unggah video Anda untuk membuka matriks bedah frame.
+                Belum ada video yang dianalisis pada sesi ini. Unggah video yang
+                memperlihatkan wajah untuk membuka matriks bedah frame.
               </p>
               <div className="flex gap-3 pt-2 w-full sm:w-auto justify-center">
                 <button
                   type="button"
-                  onClick={() => handleRunPreset("synthetic")}
-                  className="nominal-btn-primary text-xs sm:text-sm cursor-pointer w-full sm:w-auto h-[44px]"
+                  disabled={isProcessing}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="nominal-btn-primary text-xs sm:text-sm cursor-pointer disabled:cursor-not-allowed w-full sm:w-auto h-[44px] flex items-center justify-center gap-2"
                 >
-                  Muat Sampel Deepfake Sekarang
+                  <UploadSimple size={16} />
+                  <span>Pilih File Video</span>
                 </button>
               </div>
             </div>
@@ -557,7 +572,9 @@ export default function NominalForensicsPage() {
               <div className="lg:col-span-8 flex flex-col gap-4 sm:gap-6">
                 <div className="text-xs text-nominal-faint flex flex-col sm:flex-row sm:justify-between gap-1 font-mono">
                   <span className="truncate">BERKAS: {fileName}</span>
-                  <span>DURASI: {durationSec}s | 8 SAMPEL FRAME</span>
+                  <span>
+                    DURASI: {durationSec}s | {frames.length} DARI {scannedFrameCount} FRAME BERWAJAH
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
@@ -579,7 +596,7 @@ export default function NominalForensicsPage() {
                           {frames[idx]?.base64 && (
                             <img
                               src={frames[idx].base64}
-                              alt={`Frame ${item.frameIndex}`}
+                              alt={`Potongan wajah frame ${item.frameIndex}`}
                               width={224}
                               height={224}
                               loading="lazy"
@@ -617,15 +634,41 @@ export default function NominalForensicsPage() {
                     </span>
                   </div>
 
-                  {activeFrameImage && (
-                    <div className="aspect-square w-full border border-nominal-body overflow-hidden bg-black max-w-[320px] mx-auto">
-                      <img
-                        src={activeFrameImage}
-                        alt="Frame Loupe Preview"
-                        width={320}
-                        height={320}
-                        className="w-full h-full object-cover"
-                      />
+                  {activeFrame && (
+                    <div className="flex flex-col gap-2">
+                      {/* Frame penuh dengan kotak wajah yang terdeteksi */}
+                      <div
+                        className="relative w-full border border-nominal-body overflow-hidden bg-black"
+                        style={{ aspectRatio: `${activeFrame.frameWidth} / ${activeFrame.frameHeight}` }}
+                      >
+                        <img
+                          src={activeFrame.fullFrameBase64}
+                          alt={`Frame penuh pada ${activeFrame.timestampSec} detik dengan kotak wajah terdeteksi`}
+                          width={activeFrame.frameWidth}
+                          height={activeFrame.frameHeight}
+                          className="w-full h-full object-contain"
+                        />
+                        <div
+                          aria-hidden="true"
+                          className="absolute border-2 border-nominal-primary"
+                          style={{
+                            left: `${activeFrame.faceBox.x * 100}%`,
+                            top: `${activeFrame.faceBox.y * 100}%`,
+                            width: `${activeFrame.faceBox.width * 100}%`,
+                            height: `${activeFrame.faceBox.height * 100}%`,
+                          }}
+                        />
+                      </div>
+                      <div className="flex justify-between gap-2 font-mono text-[11px] text-nominal-faint">
+                        <span>
+                          Keyakinan wajah {(activeFrame.faceConfidence * 100).toFixed(1)}%
+                        </span>
+                        <span>
+                          {activeFrame.faceCount > 1
+                            ? `${activeFrame.faceCount} wajah, terbesar dianalisis`
+                            : "1 wajah"}
+                        </span>
+                      </div>
                     </div>
                   )}
 
@@ -649,8 +692,9 @@ export default function NominalForensicsPage() {
                   </div>
                 </div>
 
-                <div className="text-[11px] sm:text-xs text-nominal-faint border-t border-nominal-body pt-3 font-mono truncate">
-                  MODEL: {result.modelUsed}
+                <div className="text-[11px] sm:text-xs text-nominal-faint border-t border-nominal-body pt-3 font-mono flex flex-col gap-1">
+                  <span className="truncate">WAJAH: {FACE_DETECTOR_NAME}</span>
+                  <span className="truncate">MODEL: {result.modelUsed}</span>
                 </div>
               </div>
             </div>
